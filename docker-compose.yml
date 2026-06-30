@@ -1,0 +1,47 @@
+# =============================================================================
+# docker-compose.yml — Nginx Reverse Proxy in front of Chatwoot + Superset
+# =============================================================================
+# Run from: ~/nginx-reverse-proxy/
+# This file assumes Chatwoot and Superset are ALREADY running on their own
+# compose stacks. We connect Nginx to both networks so it can reach them
+# by container name.
+# =============================================================================
+
+version: "3.9"
+
+services:
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx-reverse-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - chatwoot_network
+      - superset_network
+      - proxy_network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/nginx-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  # External networks — these already exist from the Chatwoot and Superset
+  # docker-compose stacks. Nginx attaches to them to reach those containers
+  # by name (e.g. chatwoot-rails, superset_app).
+  chatwoot_network:
+    external: true
+    name: chatwoot-docker-deployment_chatwoot_network
+
+  superset_network:
+    external: true
+    name: superset_default
+
+  # Internal network for the proxy itself (not strictly required here,
+  # but useful if you add more proxy-related services later, e.g. certbot)
+  proxy_network:
+    driver: bridge
